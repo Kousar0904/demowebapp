@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_IP = "13.51.172.24"
+        AWS_IP = "16.171.3.245"
         IMAGE_NAME = "myapp"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
