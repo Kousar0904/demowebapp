@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        AWS_IP = "<your-aws-public-ip>"
+        AWS_IP = "13.51.172.24"
         IMAGE_NAME = "myapp"
         IMAGE_TAG = "${BUILD_NUMBER}"
     }
@@ -11,8 +11,8 @@ pipeline {
 
         stage('Clone Code') {
             steps {
-                git branch: 'main',
-                url: 'https://github.com/<your-username>/<your-repo>.git'
+                git branch: 'master',
+                url: 'https://github.com/Kousar0904/demowebapp.git'
             }
         }
 
