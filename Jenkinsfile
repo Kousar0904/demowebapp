@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = '180906/demowebapp'
-        EC2_HOST = '16.170.204.177'
+        EC2_HOST = '51.20.5.58'
     }
 
     stages {
