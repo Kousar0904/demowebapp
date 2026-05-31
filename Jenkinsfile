@@ -1,64 +1,59 @@
 pipeline {
     agent any
-
+    
     environment {
-        AWS_IP = "16.171.3.245"
-        IMAGE_NAME = "myapp"
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        DOCKER_IMAGE = '180906/demowebapp'
     }
-
+    
     stages {
-
-        stage('Clone Code') {
+        stage('Checkout Code') {
             steps {
-                git branch: 'master',
-                url: 'https://github.com/Kousar0904/demowebapp.git'
+                checkout scm
             }
         }
-
-        stage('Maven Build') {
+        
+        stage('Build WAR with Maven') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
-
-        stage('Copy to AWS') {
-            steps {
-                sshagent(['aws-ssh-key']) {
-                    sh """
-                        scp -o StrictHostKeyChecking=no \
-                        target/myapp.war ubuntu@${AWS_IP}:/home/ubuntu/
-                        
-                        scp -o StrictHostKeyChecking=no \
-                        Dockerfile ubuntu@${AWS_IP}:/home/ubuntu/
-                    """
-                }
-            }
-        }
-
+        
         stage('Build Docker Image on AWS') {
             steps {
-                sshagent(['aws-ssh-key']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} '
-                            cd /home/ubuntu &&
-                            docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . &&
-                            docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${IMAGE_NAME}:latest &&
-                            docker images
-                        '
-                    """
+                sh '''
+                    # Connect to AWS instance and build image
+                    ssh -o StrictHostKeyChecking=no ubuntu@16.170.204.177 << 'EOF'
+                    cd /workspace/demowebapp
+                    docker build -t ${DOCKER_IMAGE}:latest .
+                    docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                    EOF
+                '''
+            }
+        }
+        
+        stage('Login to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-creds', 
+                                                   usernameVariable: '180906', 
+                                                   passwordVariable: 'Kousar@09')]) {
+                    sh 'echo ${DOCKER_PASS} | docker login --username ${DOCKER_USER} --password-stdin'
                 }
             }
         }
-
-    }
-
-    post {
-        success {
-            echo '✅ Docker Image Built Successfully on AWS!'
+        
+        stage('Push to Docker Hub') {
+            steps {
+                sh '''
+                    docker push ${DOCKER_IMAGE}:latest
+                    docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                '''
+            }
         }
-        failure {
-            echo '❌ Pipeline Failed. Check logs above.'
+    }
+    
+    post {
+        always {
+            echo 'Pipeline completed!'
         }
     }
 }
