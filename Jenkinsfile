@@ -47,7 +47,7 @@ pipeline {
 
         stage('Docker Hub Login & Push') {
             steps {
-                sshagent(['aws-ec2-ssh-key']) {
+                sshagent(['ec2-ssh-key']) {
                     withCredentials([
                         usernamePassword(
                             credentialsId: 'docker-hub-creds',
