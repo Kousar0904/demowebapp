@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_IMAGE = '180906/demowebapp'
-        EC2_HOST = '51.20.5.58'
+        EC2_HOST     = '51.20.5.58'
     }
 
     stages {
@@ -22,10 +22,11 @@ pipeline {
 
         stage('Copy Project to EC2') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'KEY')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} 'mkdir -p /home/ubuntu/demowebapp'
-                        scp -o StrictHostKeyChecking=no -r * ubuntu@${EC2_HOST}:/home/ubuntu/demowebapp/
+                        ssh -i "${KEY}" -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} 'mkdir -p /home/ubuntu/demowebapp'
+                        scp -i "${KEY}" -o StrictHostKeyChecking=no -r * ubuntu@${EC2_HOST}:/home/ubuntu/demowebapp/
                     """
                 }
             }
@@ -33,12 +34,12 @@ pipeline {
 
         stage('Build Docker Image on EC2') {
             steps {
-                sshagent(['ec2-ssh-key']) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'KEY')]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
-                        cd /home/ubuntu/demowebapp
-                        docker build -t ${DOCKER_IMAGE}:latest .
-                        docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
+                        ssh -i "${KEY}" -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
+                            cd /home/ubuntu/demowebapp
+                            docker build -t ${DOCKER_IMAGE}:latest .
+                            docker tag ${DOCKER_IMAGE}:latest ${DOCKER_IMAGE}:${BUILD_NUMBER}
                         '
                     """
                 }
@@ -47,22 +48,21 @@ pipeline {
 
         stage('Docker Hub Login & Push') {
             steps {
-                sshagent(['ec2-ssh-key']) {
-                    withCredentials([
-                        usernamePassword(
-                            credentialsId: 'docker-hub-creds',
-                            usernameVariable: 'DOCKER_USER',
-                            passwordVariable: 'DOCKER_PASS'
-                        )
-                    ]) {
-                        sh """
-                            ssh -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'KEY'),
+                    usernamePassword(
+                        credentialsId: 'docker-hub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh """
+                        ssh -i "${KEY}" -o StrictHostKeyChecking=no ubuntu@${EC2_HOST} '
                             echo "${DOCKER_PASS}" | docker login -u "${DOCKER_USER}" --password-stdin
                             docker push ${DOCKER_IMAGE}:latest
                             docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-                            '
-                        """
-                    }
+                        '
+                    """
                 }
             }
         }
